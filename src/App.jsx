@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polyline,
+} from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -10,14 +16,41 @@ import "./App.css";
 import { toast } from "react-toastify";
 import { Divider } from "antd";
 import "react-toastify/dist/ReactToastify.css";
-import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js';
+import { Bar } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+} from "chart.js";
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
+ChartJS.register(
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale
+);
 
 const defaultIcon = new L.Icon({
   iconUrl:
     "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  shadowSize: [41, 41],
+});
+
+// Define a new blue icon for hospitals
+const hospitalIcon = new L.Icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -36,7 +69,7 @@ const dmsToDecimal = (dms, direction) => {
 };
 
 const getNearbyHospitals = async (latitude, longitude) => {
-  const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${latitude},${longitude})[amenity=hospital];out;`;
+  const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:1000,${latitude},${longitude})[amenity=hospital];out;`;
   try {
     const response = await fetch(overpassUrl);
     const data = await response.json();
@@ -47,7 +80,7 @@ const getNearbyHospitals = async (latitude, longitude) => {
     }));
 
     // Limit to the first 3 nearby hospitals
-    return hospitals.slice(0, 3);
+    return hospitals;
   } catch (error) {
     console.error("Error fetching nearby hospitals:", error.message);
     return [];
@@ -146,8 +179,8 @@ function App() {
       {
         label: "Accident Occurrences",
         data: locations.map(() => 1),
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: "rgba(75, 192, 192, 0.2)",
+        borderColor: "rgba(75, 192, 192, 1)",
         borderWidth: 1,
       },
     ],
@@ -232,26 +265,52 @@ function App() {
                     position={[location.latitude, location.longitude]}
                     icon={defaultIcon}
                   >
-                    <Popup>{location.description}</Popup>
+                    <Popup>
+                      <strong>Description:</strong> {location.description}
+                      <br />
+                      <strong>Latitude:</strong> {location.latitude}
+                      <br />
+                      <strong>Longitude:</strong> {location.longitude}
+                    </Popup>
                   </Marker>
                 ))}
+
                 {hospitals.map((hospital, index) => (
                   <Marker
                     key={index}
                     position={[hospital.latitude, hospital.longitude]}
-                    icon={defaultIcon}
+                    icon={hospitalIcon}
                   >
-                    <Popup>{hospital.name}</Popup>
+                    <Popup>
+                      <strong>{hospital.name}</strong>
+                      <br />
+                      <strong>Latitude:</strong> {hospital.latitude}
+                      <br />
+                      <strong>Longitude:</strong> {hospital.longitude}
+                    </Popup>
                   </Marker>
                 ))}
+
+                {locations.map((location, locIndex) =>
+                  hospitals.map((hospital, hosIndex) => (
+                    <Polyline
+                      key={`polyline-${locIndex}-${hosIndex}`}
+                      positions={[
+                        [location.latitude, location.longitude],
+                        [hospital.latitude, hospital.longitude],
+                      ]}
+                      color="blue"
+                    />
+                  ))
+                )}
               </MapContainer>
             </div>
+          </div>
 
-            {/* Bar Chart */}
-            <div className="w-full h-[300px] bg-white p-4 rounded shadow">
-              <h2 className="text-xl font-semibold mb-4">Accident Occurrences</h2>
-              <Bar data={barChartData} options={barChartOptions} />
-            </div>
+          {/* Bottom Section: Accident Statistics */}
+          <div className="bg-white p-4 rounded shadow text-black">
+            <h2 className="text-xl font-semibold mb-4">Accident Statistics</h2>
+            <Bar data={barChartData} options={barChartOptions} />
           </div>
         </div>
       </div>
