@@ -7,25 +7,13 @@ import "leaflet-defaulticon-compatibility";
 import { FaBell } from "react-icons/fa";
 import logo from "../src/assets/logo.png";
 import "./App.css";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import { toast } from "react-toastify";
+import { Divider } from "antd";
+import "react-toastify/dist/ReactToastify.css";
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
 const defaultIcon = new L.Icon({
   iconUrl:
@@ -45,6 +33,25 @@ const dmsToDecimal = (dms, direction) => {
     decimal = -decimal;
   }
   return decimal;
+};
+
+const getNearbyHospitals = async (latitude, longitude) => {
+  const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${latitude},${longitude})[amenity=hospital];out;`;
+  try {
+    const response = await fetch(overpassUrl);
+    const data = await response.json();
+    const hospitals = data.elements.map((hospital) => ({
+      name: hospital.tags.name,
+      latitude: hospital.lat,
+      longitude: hospital.lon,
+    }));
+
+    // Limit to the first 3 nearby hospitals
+    return hospitals.slice(0, 3);
+  } catch (error) {
+    console.error("Error fetching nearby hospitals:", error.message);
+    return [];
+  }
 };
 
 const getHumanReadableAddress = async (latitude, longitude) => {
@@ -112,50 +119,54 @@ const fetchLocationData = async () => {
 
 function App() {
   const [locations, setLocations] = useState([]);
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertData, setAlertData] = useState(null);
-  const bellIconRef = useRef(null);
+  const [hospitals, setHospitals] = useState([]);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     const getData = async () => {
       const data = await fetchLocationData();
-
       setLocations(data);
-      setAlertData(data);
+
+      if (data.length > 0) {
+        const firstAccidentLocation = data[0];
+        const nearbyHospitals = await getNearbyHospitals(
+          firstAccidentLocation.latitude,
+          firstAccidentLocation.longitude
+        );
+        setHospitals(nearbyHospitals);
+      }
     };
 
     getData();
   }, []);
 
-  const handleBellClick = () => {
-    setShowAlert(true);
-  };
-
-  // Chart data
-  const chartData = {
-    labels: [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ],
+  const barChartData = {
+    labels: locations.map((loc) => loc.time),
     datasets: [
       {
-        label: "Accidents per Month",
-        data: [5, 7, 3, 9, 12, 6, 8, 10, 5, 7, 6, 8], // Dummy data
-        backgroundColor: "rgba(0, 255, 0, 0.5)", // Green color
-        borderColor: "rgba(0, 255, 0, 1)",
+        label: "Accident Occurrences",
+        data: locations.map(() => 1),
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        borderColor: 'rgba(75, 192, 192, 1)',
         borderWidth: 1,
       },
     ],
+  };
+
+  const barChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: true,
+      },
+      tooltip: {
+        callbacks: {
+          label: function (tooltipItem) {
+            return `Occurrences: ${tooltipItem.raw}`;
+          },
+        },
+      },
+    },
   };
 
   return (
@@ -165,16 +176,7 @@ function App() {
         <h1 className="text-xl font-semibold">
           Transportation and Logistics Department
         </h1>
-        <div className="relative">
-          <FaBell
-            ref={bellIconRef}
-            className="text-white text-2xl cursor-pointer"
-            onClick={handleBellClick}
-          />
-          <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-            3
-          </span>
-        </div>
+        <FaBell className="text-white text-2xl cursor-pointer" />
       </header>
 
       {/* Main Content */}
@@ -188,18 +190,12 @@ function App() {
           <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
             Reports
           </div>
-          <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
-            Settings
-          </div>
-          <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
-            Profile
-          </div>
         </nav>
 
         {/* Center Section: Map and Accident Details */}
         <div className="flex flex-col flex-1 p-6 space-y-6">
           {/* Details Box and Map */}
-          <div className="flex flex-row space-x-6">
+          <div className="flex flex-col space-y-6">
             {/* Accident Details */}
             <div className="flex-1 bg-white p-4 rounded shadow text-black overflow-y-auto h-[300px]">
               <h2 className="text-xl font-semibold mb-4">Accident Details</h2>
@@ -222,11 +218,12 @@ function App() {
             </div>
 
             {/* Map */}
-            <div className="w-1/2 h-[300px]">
+            <div className="w-full h-[300px]">
               <MapContainer
                 center={[22.7196, 75.8577]}
                 zoom={12}
-                className=" w-full rounded shadow-lg "
+                className="shadow-lg z-0"
+                ref={mapRef}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {locations.map((location, index) => (
@@ -238,103 +235,28 @@ function App() {
                     <Popup>{location.description}</Popup>
                   </Marker>
                 ))}
+                {hospitals.map((hospital, index) => (
+                  <Marker
+                    key={index}
+                    position={[hospital.latitude, hospital.longitude]}
+                    icon={defaultIcon}
+                  >
+                    <Popup>{hospital.name}</Popup>
+                  </Marker>
+                ))}
               </MapContainer>
             </div>
-          </div>
 
-          {/* Alerts and Past Events
-          <div className="flex flex-col space-y-6"> */}
-          {/* Alerts Chart
-            <div className="bg-white p-4 rounded shadow">
-              <h2 className="text-xl font-semibold mb-4">Alerts Summary</h2>
-              <div className="bg-gray-200 p-4 rounded">
-                <h3 className="text-lg font-semibold mb-2">Monthly Accident Summary</h3>
-                <Bar data={chartData} />
-              </div>
-            </div> */}
-
-          <div className="flex flex-col space-y-6 text-black">
-            {/* Alerts Chart */}
-            <div className="bg-white p-4 rounded shadow">
-              <h2 className="text-xl font-semibold mb-4">Alerts Summary</h2>
-              <div className="bg-gray-200 p-4 rounded">
-                <h3 className="text-lg font-semibold mb-2">Chart Title</h3>
-                <p>Chart or summary of alert details...</p>
-                {/* Add your chart here */}
-              </div>
-            </div>
-
-            {/* Past Accident Insights */}
-            <div className="bg-gray-100 p-6 rounded">
-              <h2 className="text-xl font-semibold mb-4">
-                Past Accident Insights
-              </h2>
-              <div className="bg-yellow-200 p-4 rounded mb-4 shadow">
-                <p>
-                  <strong>Location:</strong> Indore City Center
-                </p>
-                <p>
-                  <strong>Details:</strong> Minor collision involving two
-                  vehicles.
-                </p>
-                <p>
-                  <strong>Date:</strong> 2024-08-29
-                </p>
-              </div>
-              <div className="bg-yellow-200 p-4 rounded shadow">
-                <p>
-                  <strong>Location:</strong> Rau, Indore
-                </p>
-                <p>
-                  <strong>Details:</strong> Single-vehicle accident due to
-                  slippery roads.
-                </p>
-                <p>
-                  <strong>Date:</strong> 2024-08-28
-                </p>
-              </div>
+            {/* Bar Chart */}
+            <div className="w-full h-[300px] bg-white p-4 rounded shadow">
+              <h2 className="text-xl font-semibold mb-4">Accident Occurrences</h2>
+              <Bar data={barChartData} options={barChartOptions} />
             </div>
           </div>
         </div>
       </div>
-
-      {/* Alert Popup */}
-      {showAlert && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20"
-          style={{
-            top:
-              bellIconRef.current?.offsetTop +
-              bellIconRef.current?.offsetHeight +
-              10,
-          }}
-        >
-          <div className="bg-white p-6 rounded shadow-lg w-3/4 max-w-lg">
-            <h2 className="text-xl font-semibold mb-4">Alert Details</h2>
-            <p>New accident details from the backend...</p>
-            <div className="bg-gray-200 p-4 rounded mt-4">
-              {/* Display chart or alert details */}
-              <h3 className="text-lg font-semibold mb-2">Alert Summary</h3>
-              <p>Details of the alert...</p>
-              {/* Add your chart here */}
-            </div>
-            <button
-              className="mt-4 bg-blue-500 text-white p-2 rounded"
-              onClick={() => setShowAlert(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 export default App;
-
-// , ${
-//   address.neighbourhood || ""
-// }, ${address.suburb || ""}, ${address.city || address.town || ""}, ${
-//   address.state || ""
-// }, ${address.country || ""}`.trim();
