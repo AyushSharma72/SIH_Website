@@ -4,37 +4,15 @@ import {
   TileLayer,
   Marker,
   Popup,
-  Polyline,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "leaflet-defaulticon-compatibility";
+import "leaflet-routing-machine";
 import { FaBell } from "react-icons/fa";
 import logo from "../src/assets/logo.png";
 import "./App.css";
-import { toast } from "react-toastify";
-import { Divider } from "antd";
-import "react-toastify/dist/ReactToastify.css";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  Title,
-  Tooltip,
-  Legend,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-} from "chart.js";
-
-ChartJS.register(
-  Title,
-  Tooltip,
-  Legend,
-  BarElement,
-  CategoryScale,
-  LinearScale
-);
 
 const defaultIcon = new L.Icon({
   iconUrl:
@@ -47,7 +25,6 @@ const defaultIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-// Define a new blue icon for hospitals
 const hospitalIcon = new L.Icon({
   iconUrl:
     "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
@@ -59,6 +36,7 @@ const hospitalIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+// Convert DMS to Decimal
 const dmsToDecimal = (dms, direction) => {
   const [degrees, minutes, seconds] = dms.split(/[°'"]/).map(Number);
   let decimal = degrees + minutes / 60 + seconds / 3600;
@@ -68,40 +46,39 @@ const dmsToDecimal = (dms, direction) => {
   return decimal;
 };
 
+
+// Calculate the distance between two coordinates (Haversine formula)
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Radius of the Earth in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in km
+  return distance;
+};
+
 const getNearbyHospitals = async (latitude, longitude) => {
-  const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:1000,${latitude},${longitude})[amenity=hospital];out;`;
+  const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${latitude},${longitude})[amenity=hospital];out;`;
   try {
     const response = await fetch(overpassUrl);
     const data = await response.json();
     const hospitals = data.elements.map((hospital) => ({
       name: hospital.tags.name,
+      address: hospital.tags['addr:full'] || 'Address not available',
       latitude: hospital.lat,
       longitude: hospital.lon,
     }));
 
-    // Limit to the first 3 nearby hospitals
     return hospitals;
   } catch (error) {
     console.error("Error fetching nearby hospitals:", error.message);
     return [];
-  }
-};
-
-const getHumanReadableAddress = async (latitude, longitude) => {
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    const data = await response.json();
-    const address = data.address;
-    const readableAddress = `${data.display_name || ""}`;
-    return readableAddress;
-  } catch (error) {
-    console.error("Error fetching human-readable address:", error.message);
-    return "Unknown Location";
   }
 };
 
@@ -126,15 +103,12 @@ const fetchLocationData = async () => {
             item.Longitude.replace(/[NSEW]/g, ""),
             item.Longitude.slice(-1)
           );
-          const address = await getHumanReadableAddress(latitude, longitude);
 
           return {
             latitude,
             longitude,
             time: new Date(item.createdAt).toLocaleString(),
-            description: `Accident at ${address} on ${new Date(
-              item.createdAt
-            ).toLocaleString()}`,
+            description: `Accident on ${new Date(item.createdAt).toLocaleString()}`,
           };
         })
       );
@@ -153,58 +127,92 @@ const fetchLocationData = async () => {
 function App() {
   const [locations, setLocations] = useState([]);
   const [hospitals, setHospitals] = useState([]);
+  const [directions, setDirections] = useState([]);
   const mapRef = useRef(null);
 
   useEffect(() => {
     const getData = async () => {
       const data = await fetchLocationData();
       setLocations(data);
-
+  
       if (data.length > 0) {
         const firstAccidentLocation = data[0];
         const nearbyHospitals = await getNearbyHospitals(
           firstAccidentLocation.latitude,
           firstAccidentLocation.longitude
         );
-        setHospitals(nearbyHospitals);
+  
+        // Compute distance to each hospital and sort by nearest
+        const sortedHospitals = nearbyHospitals.map(hospital => ({
+          ...hospital,
+          distance: getDistance(
+            firstAccidentLocation.latitude,
+            firstAccidentLocation.longitude,
+            hospital.latitude,
+            hospital.longitude
+          ),
+        }))
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 3);  // Take only the top 3 nearest hospitals
+  
+        setHospitals(sortedHospitals);  // Set the top 3 hospitals
       }
     };
-
+  
     getData();
   }, []);
+  
 
-  const barChartData = {
-    labels: locations.map((loc) => loc.time),
-    datasets: [
-      {
-        label: "Accident Occurrences",
-        data: locations.map(() => 1),
-        backgroundColor: "rgba(75, 192, 192, 0.2)",
-        borderColor: "rgba(75, 192, 192, 1)",
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  const barChartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        display: true,
-      },
-      tooltip: {
-        callbacks: {
-          label: function (tooltipItem) {
-            return `Occurrences: ${tooltipItem.raw}`;
-          },
+  const showRoute = (hospital) => {
+    if (mapRef.current && locations.length > 0) {
+      const map = mapRef.current;
+      const firstAccidentLocation = locations[0];
+  
+      // Remove any existing routing control
+      map.eachLayer(layer => {
+        if (layer instanceof L.Routing.Control) {
+          map.removeLayer(layer);
+        }
+      });
+  
+      // Add routing control for the selected hospital
+      const routingControl = L.Routing.control({
+        waypoints: [
+          L.latLng(hospital.latitude, hospital.longitude),
+          L.latLng(firstAccidentLocation.latitude, firstAccidentLocation.longitude),
+        ],
+        lineOptions: {
+          styles: [{ color: "blue", weight: 4 }], // Color of the route
         },
-      },
-    },
+        createMarker: () => null,
+        show: false,
+        addWaypoints: false,
+      }).addTo(map);
+  
+      routingControl.on("routesfound", function (e) {
+        const route = e.routes[0];
+        const steps = route.instructions.map((step) => ({
+          text: step.text,
+          distance: step.distance,
+        }));
+        setDirections(steps);
+      });
+  
+      // Trigger a resize fix and fit the bounds of the map to the locations
+      map.invalidateSize();
+  
+      // Fit bounds to include the accident location and the selected hospital
+      const bounds = L.latLngBounds([
+        [hospital.latitude, hospital.longitude],
+        [firstAccidentLocation.latitude, firstAccidentLocation.longitude],
+      ]);
+      map.fitBounds(bounds);
+    }
   };
+  
 
   return (
     <div className="h-screen flex flex-col relative">
-      {/* Header */}
       <header className="bg-blue-700 text-white p-4 flex items-center justify-between fixed top-0 left-0 w-full z-10">
         <h1 className="text-xl font-semibold">
           Transportation and Logistics Department
@@ -212,10 +220,8 @@ function App() {
         <FaBell className="text-white text-2xl cursor-pointer" />
       </header>
 
-      {/* Main Content */}
       <div className="flex flex-grow mt-16">
-        {/* Navigation Bar */}
-        <nav className="bg-orange-500 text-white w-1/4 p-6 flex flex-col space-y-4">
+        <nav className="bg-orange-500 text-white w-1/6 p-6 flex flex-col space-y-4">
           <img src={logo} alt="Logo" className="h-25 w-50 mb-4" />
           <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
             Dashboard
@@ -225,11 +231,8 @@ function App() {
           </div>
         </nav>
 
-        {/* Center Section: Map and Accident Details */}
         <div className="flex flex-col flex-1 p-6 space-y-6">
-          {/* Details Box and Map */}
           <div className="flex flex-col space-y-6">
-            {/* Accident Details */}
             <div className="flex-1 bg-white p-4 rounded shadow text-black overflow-y-auto h-[300px]">
               <h2 className="text-xl font-semibold mb-4">Accident Details</h2>
               {locations.map((location, index) => (
@@ -250,12 +253,11 @@ function App() {
               ))}
             </div>
 
-            {/* Map */}
-            <div className="w-full h-[300px]">
+            <div className="w-full h-[80vh]">
               <MapContainer
                 center={[22.7196, 75.8577]}
                 zoom={12}
-                className="shadow-lg z-0"
+                className="shadow-lg w-full h-full"
                 ref={mapRef}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -284,34 +286,54 @@ function App() {
                     <Popup>
                       <strong>{hospital.name}</strong>
                       <br />
-                      <strong>Latitude:</strong> {hospital.latitude}
+                      <strong>Address:</strong> {hospital.address}
                       <br />
-                      <strong>Longitude:</strong> {hospital.longitude}
+                      <strong>Distance:</strong> {hospital.distance.toFixed(2)} km
+                      <br />
+                      <button
+                        className="bg-blue-500 text-white px-2 py-1 mt-2 rounded"
+                        onClick={() => showRoute(hospital)}
+                      >
+                        Show Route
+                      </button>
                     </Popup>
                   </Marker>
                 ))}
-
-                {locations.map((location, locIndex) =>
-                  hospitals.map((hospital, hosIndex) => (
-                    <Polyline
-                      key={`polyline-${locIndex}-${hosIndex}`}
-                      positions={[
-                        [location.latitude, location.longitude],
-                        [hospital.latitude, hospital.longitude],
-                      ]}
-                      color="blue"
-                    />
-                  ))
-                )}
               </MapContainer>
             </div>
           </div>
 
-          {/* Bottom Section: Accident Statistics */}
-          <div className="bg-white p-4 rounded shadow text-black">
-            <h2 className="text-xl font-semibold mb-4">Accident Statistics</h2>
-            <Bar data={barChartData} options={barChartOptions} />
+          <div className="bg-white p-4 rounded shadow text-black mt-4">
+            <h2 className="text-xl font-semibold mb-4">Nearest Hospitals Information</h2>
+            {hospitals.map((hospital, index) => (
+              <div key={index} className="border-b pb-2 mb-2">
+                <h3 className="text-lg font-semibold">
+                  {hospital.name} {index === 0 && <span className="text-green-500">(Nearest)</span>}
+                </h3>
+                <p><strong>Address:</strong> {hospital.address}</p>
+                <p><strong>Distance:</strong> {hospital.distance.toFixed(2)} km</p>
+                <button
+                  className="bg-blue-500 text-white px-4 py-2 mt-2 rounded"
+                  onClick={() => showRoute(hospital)}
+                >
+                  Show Route
+                </button>
+              </div>
+            ))}
           </div>
+
+          {directions.length > 0 && (
+            <div className="bg-white p-4 rounded shadow text-black mt-4">
+              <h2 className="text-xl font-semibold mb-4">Directions to Accident</h2>
+              <ul className="list-decimal ml-5">
+                {directions.map((direction, index) => (
+                  <li key={index} className="mb-2">
+                    {direction.text} ({Math.round(direction.distance)} meters)
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </div>
