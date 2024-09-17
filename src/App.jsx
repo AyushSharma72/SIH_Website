@@ -13,6 +13,7 @@ import "leaflet-routing-machine";
 import { FaBell } from "react-icons/fa";
 import logo from "../src/assets/logo.png";
 import "./App.css";
+import { Link } from 'react-router-dom';
 
 const defaultIcon = new L.Icon({
   iconUrl:
@@ -221,15 +222,27 @@ function App() {
       </header>
 
       <div className="flex flex-grow mt-16">
-        <nav className="bg-orange-500 text-white w-1/6 p-6 flex flex-col space-y-4">
-          <img src={logo} alt="Logo" className="h-25 w-50 mb-4" />
-          <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
-            Dashboard
-          </div>
-          <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
-            Reports
-          </div>
-        </nav>
+      <nav className="bg-orange-500 text-white w-1/6 p-6 flex flex-col space-y-4">
+      <img src={logo} alt="Logo" className="h-25 w-50 mb-4" />
+      
+      <Link to="/">
+        <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
+          Dashboard
+        </div>
+      </Link>
+      
+      <Link to="/reports">
+        <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
+          Reports
+        </div>
+      </Link>
+      
+      <Link to="/tollnaka"> {/* Link to Tollnaka page */}
+        <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
+          Tollnaka
+        </div>
+      </Link>
+    </nav>
 
         <div className="flex flex-col flex-1 p-6 space-y-6">
           <div className="flex flex-col space-y-6">
