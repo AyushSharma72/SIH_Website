@@ -21,19 +21,20 @@ const redIcon = new Icon({
 const Tollnaka = () => {
   const [totalDistance, setTotalDistance] = useState(0);
   const [totalFare, setTotalFare] = useState(0);
-  const [tollExpenses, setTollExpenses] = useState(0); // Added state for toll expenses
+  const [tollExpenses, setTollExpenses] = useState(0); // Toll expenses for highway segments
   const mapRef = useRef();
 
-  // Dummy coordinates (GPS data) for vehicle route (in Madhya Pradesh, India)
+  // Route coordinates (dummy data for the example)
   const routeCoordinates = [
-    { lat: 22.7196, lng: 75.8577 }, // Indore
-    { lat: 23.2599, lng: 77.4126 }, // Bhopal
+    { lat: 22.7196, lng: 75.8577 }, // Indore (Start)
+    { lat: 22.9734, lng: 78.6569 }, // Sehore (on highway)
+    { lat: 23.2599, lng: 77.4126 }, // Bhopal (End)
   ];
 
-  // Dummy toll locations and toll data
+  // Dummy toll locations and toll data (only on highways)
   const tollLocations = [
     { lat: 22.8239, lng: 76.0820, toll: 50, city: 'Toll 1 near Indore' },
-    { lat: 23.1496, lng: 76.7551, toll: 75, city: 'Toll 2 near Bhopal' },
+    { lat: 22.9734, lng: 78.5569, toll: 100, city: 'Toll 2 near Sehore' },
   ];
 
   // Function to calculate distance using haversine formula
@@ -47,25 +48,32 @@ const Tollnaka = () => {
     return distance / 1000; // Convert to kilometers
   };
 
-  // Function to calculate total toll expenses
+  // Function to calculate toll expenses based only on highway segments
   const calculateTollExpenses = () => {
-    return tollLocations.reduce((sum, toll) => sum + toll.toll, 0);
+    let tollSum = 0;
+    tollLocations.forEach((toll) => {
+      const isOnHighway = routeCoordinates.some((route) => 
+        L.latLng(route.lat, route.lng).distanceTo(L.latLng(toll.lat, toll.lng)) < 5000 // Close to toll location
+      );
+      if (isOnHighway) tollSum += toll.toll;
+    });
+    return tollSum;
   };
 
-  // Function to calculate total fare (distance fare + toll expenses)
+  // Function to calculate total fare (highway tolls only)
   const calculateFare = (distance) => {
-    const tollRatePerKm = 2; // Dummy toll rate per kilometer
-    const distanceFare = distance * tollRatePerKm;
+    const tollRatePerKm = 2; // Dummy fare per kilometer on highways
     const totalTolls = calculateTollExpenses(); // Total toll expenses
+    const distanceFare = distance * tollRatePerKm;
 
-    return distanceFare + totalTolls;
+    return totalTolls + distanceFare;
   };
 
   useEffect(() => {
     const distance = calculateDistance();
     const tolls = calculateTollExpenses();
     const fare = calculateFare(distance);
-    
+
     setTotalDistance(distance);
     setTollExpenses(tolls);
     setTotalFare(fare);
@@ -122,7 +130,7 @@ const Tollnaka = () => {
 
         {/* Main content */}
         <div className="flex flex-col flex-1 p-6 space-y-6">
-          {/* Map container taking full width */}
+          {/* Map container */}
           <div className="w-full h-[70vh]">
             <MapContainer
               center={[22.7196, 75.8577]}
@@ -135,12 +143,16 @@ const Tollnaka = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
               <Polyline positions={routeCoordinates} color="blue" />
-              
+
               {/* Start marker */}
-              <Marker position={routeCoordinates[0]} icon={blueIcon}></Marker>
+              <Marker position={routeCoordinates[0]} icon={blueIcon}>
+                <Popup>Start Point: Indore</Popup>
+              </Marker>
               
               {/* End marker */}
-              <Marker position={routeCoordinates[1]} icon={blueIcon}></Marker>
+              <Marker position={routeCoordinates[routeCoordinates.length - 1]} icon={blueIcon}>
+                <Popup>End Point: Bhopal</Popup>
+              </Marker>
 
               {/* Toll locations (red markers) */}
               {tollLocations.map((toll, index) => (
