@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
+    "@mui/material": "^6.1.1",
     "antd": "^5.20.3",
     "chart.js": "^4.4.4",
     "haversine-distance": "^1.2.3",

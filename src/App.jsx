@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-} from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -13,7 +8,7 @@ import "leaflet-routing-machine";
 import { FaBell } from "react-icons/fa";
 import logo from "../src/assets/logo.png";
 import "./App.css";
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
 
 const defaultIcon = new L.Icon({
   iconUrl:
@@ -47,7 +42,6 @@ const dmsToDecimal = (dms, direction) => {
   return decimal;
 };
 
-
 // Calculate the distance between two coordinates (Haversine formula)
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Radius of the Earth in km
@@ -71,7 +65,7 @@ const getNearbyHospitals = async (latitude, longitude) => {
     const data = await response.json();
     const hospitals = data.elements.map((hospital) => ({
       name: hospital.tags.name,
-      address: hospital.tags['addr:full'] || 'Address not available',
+      address: hospital.tags["addr:full"] || "Address not available",
       latitude: hospital.lat,
       longitude: hospital.lon,
     }));
@@ -108,8 +102,11 @@ const fetchLocationData = async () => {
           return {
             latitude,
             longitude,
+
             time: new Date(item.createdAt).toLocaleString(),
-            description: `Accident on ${new Date(item.createdAt).toLocaleString()}`,
+            description: `Accident on ${new Date(
+              item.createdAt
+            ).toLocaleString()}`,
           };
         })
       );
@@ -135,52 +132,55 @@ function App() {
     const getData = async () => {
       const data = await fetchLocationData();
       setLocations(data);
-  
+
       if (data.length > 0) {
         const firstAccidentLocation = data[0];
         const nearbyHospitals = await getNearbyHospitals(
           firstAccidentLocation.latitude,
           firstAccidentLocation.longitude
         );
-  
+
         // Compute distance to each hospital and sort by nearest
-        const sortedHospitals = nearbyHospitals.map(hospital => ({
-          ...hospital,
-          distance: getDistance(
-            firstAccidentLocation.latitude,
-            firstAccidentLocation.longitude,
-            hospital.latitude,
-            hospital.longitude
-          ),
-        }))
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 3);  // Take only the top 3 nearest hospitals
-  
-        setHospitals(sortedHospitals);  // Set the top 3 hospitals
+        const sortedHospitals = nearbyHospitals
+          .map((hospital) => ({
+            ...hospital,
+            distance: getDistance(
+              firstAccidentLocation.latitude,
+              firstAccidentLocation.longitude,
+              hospital.latitude,
+              hospital.longitude
+            ),
+          }))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 3); // Take only the top 3 nearest hospitals
+
+        setHospitals(sortedHospitals); // Set the top 3 hospitals
       }
     };
-  
+
     getData();
   }, []);
-  
 
   const showRoute = (hospital) => {
     if (mapRef.current && locations.length > 0) {
       const map = mapRef.current;
       const firstAccidentLocation = locations[0];
-  
+
       // Remove any existing routing control
-      map.eachLayer(layer => {
+      map.eachLayer((layer) => {
         if (layer instanceof L.Routing.Control) {
           map.removeLayer(layer);
         }
       });
-  
+
       // Add routing control for the selected hospital
       const routingControl = L.Routing.control({
         waypoints: [
           L.latLng(hospital.latitude, hospital.longitude),
-          L.latLng(firstAccidentLocation.latitude, firstAccidentLocation.longitude),
+          L.latLng(
+            firstAccidentLocation.latitude,
+            firstAccidentLocation.longitude
+          ),
         ],
         lineOptions: {
           styles: [{ color: "blue", weight: 4 }], // Color of the route
@@ -189,7 +189,7 @@ function App() {
         show: false,
         addWaypoints: false,
       }).addTo(map);
-  
+
       routingControl.on("routesfound", function (e) {
         const route = e.routes[0];
         const steps = route.instructions.map((step) => ({
@@ -198,10 +198,10 @@ function App() {
         }));
         setDirections(steps);
       });
-  
+
       // Trigger a resize fix and fit the bounds of the map to the locations
       map.invalidateSize();
-  
+
       // Fit bounds to include the accident location and the selected hospital
       const bounds = L.latLngBounds([
         [hospital.latitude, hospital.longitude],
@@ -210,7 +210,23 @@ function App() {
       map.fitBounds(bounds);
     }
   };
-  
+  // const getHumanReadableAddress = async (latitude, longitude) => {
+  //   try {
+  //     const response = await fetch(
+  //       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
+  //     );
+  //     if (!response.ok) {
+  //       throw new Error(`HTTP error! Status: ${response.status}`);
+  //     }
+  //     const data = await response.json();
+  //     const address = data.address;
+  //     const readableAddress = `${data.display_name || ""}`;
+  //     return readableAddress;
+  //   } catch (error) {
+  //     console.error("Error fetching human-readable address:", error.message);
+  //     return "Unknown Location";
+  //   }
+  // };
 
   return (
     <div className="h-screen flex flex-col relative">
@@ -221,35 +237,37 @@ function App() {
         <FaBell className="text-white text-2xl cursor-pointer" />
       </header>
 
-      <div className="flex flex-grow mt-16">
-      <nav className="bg-orange-500 text-white w-1/6 p-6 flex flex-col space-y-4">
-      <img src={logo} alt="Logo" className="h-25 w-50 mb-4" />
-      
-      <Link to="/">
-        <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
-          Dashboard
-        </div>
-      </Link>
-      
-      <Link to="/reports">
-        <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
-          Reports
-        </div>
-      </Link>
-      
-      <Link to="/tollnaka"> {/* Link to Tollnaka page */}
-        <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
-          Tollnaka
-        </div>
-      </Link>
-    </nav>
+      <div className="flex flex-grow mt-16 w-full">
+        <nav className="bg-orange-500 text-white w-1/4 p-6 flex flex-col space-y-4">
+          <img src={logo} alt="Logo" className="h-25 w-50 mb-4" />
 
-        <div className="flex flex-col flex-1 p-6 space-y-6">
-          <div className="flex flex-col space-y-6">
-            <div className="flex-1 bg-white p-4 rounded shadow text-black overflow-y-auto h-[300px]">
+          <Link to="/" className="text-black font-bold">
+            <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
+              Dashboard
+            </div>
+          </Link>
+
+          <Link to="/reports" className="text-black font-bold">
+            <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
+              Reports
+            </div>
+          </Link>
+
+          <Link to="/tollnaka" className="text-black font-bold">
+            {" "}
+            {/* Link to Tollnaka page */}
+            <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
+              Tollnaka
+            </div>
+          </Link>
+        </nav>
+
+        <div className="flex flex-col flex-1 p-6 space-y-6 w-3/4">
+          <div className="flex gap-x-2 w-full">
+            <div className="flex-1 bg-white p-4 rounded shadow text-black overflow-y-auto h-[300px] w-full">
               <h2 className="text-xl font-semibold mb-4">Accident Details</h2>
               {locations.map((location, index) => (
-                <div key={index} className="border-b pb-2 mb-2">
+                <div key={index} className="border-b pb-2 mb-2 w-full">
                   <p>
                     <strong>Description:</strong> {location.description}
                   </p>
@@ -266,11 +284,11 @@ function App() {
               ))}
             </div>
 
-            <div className="w-full h-[80vh]">
+            <div className="w-1/2 h-[300px]">
               <MapContainer
-                center={[22.7196, 75.8577]}
-                zoom={12}
-                className="shadow-lg w-full h-full"
+                center={[22.6812, 75.8798]}
+                zoom={15}
+                className="shadow-lg w-full h-full z-0"
                 ref={mapRef}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -301,7 +319,8 @@ function App() {
                       <br />
                       <strong>Address:</strong> {hospital.address}
                       <br />
-                      <strong>Distance:</strong> {hospital.distance.toFixed(2)} km
+                      <strong>Distance:</strong> {hospital.distance.toFixed(2)}{" "}
+                      km
                       <br />
                       <button
                         className="bg-blue-500 text-white px-2 py-1 mt-2 rounded"
@@ -317,14 +336,23 @@ function App() {
           </div>
 
           <div className="bg-white p-4 rounded shadow text-black mt-4">
-            <h2 className="text-xl font-semibold mb-4">Nearest Hospitals Information</h2>
+            <h2 className="text-xl font-semibold mb-4">
+              Nearest Hospitals Information
+            </h2>
             {hospitals.map((hospital, index) => (
               <div key={index} className="border-b pb-2 mb-2">
                 <h3 className="text-lg font-semibold">
-                  {hospital.name} {index === 0 && <span className="text-green-500">(Nearest)</span>}
+                  {hospital.name}{" "}
+                  {index === 0 && (
+                    <span className="text-green-500">(Nearest)</span>
+                  )}
                 </h3>
-                <p><strong>Address:</strong> {hospital.address}</p>
-                <p><strong>Distance:</strong> {hospital.distance.toFixed(2)} km</p>
+                <p>
+                  <strong>Address:</strong> {hospital.address}
+                </p>
+                <p>
+                  <strong>Distance:</strong> {hospital.distance.toFixed(2)} km
+                </p>
                 <button
                   className="bg-blue-500 text-white px-4 py-2 mt-2 rounded"
                   onClick={() => showRoute(hospital)}
@@ -337,7 +365,9 @@ function App() {
 
           {directions.length > 0 && (
             <div className="bg-white p-4 rounded shadow text-black mt-4">
-              <h2 className="text-xl font-semibold mb-4">Directions to Accident</h2>
+              <h2 className="text-xl font-semibold mb-4">
+                Directions to Accident
+              </h2>
               <ul className="list-decimal ml-5">
                 {directions.map((direction, index) => (
                   <li key={index} className="mb-2">
@@ -350,7 +380,6 @@ function App() {
         </div>
       </div>
     </div>
-    
   );
 }
 
