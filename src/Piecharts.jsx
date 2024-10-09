@@ -86,11 +86,11 @@ const TwoPieCharts = () => {
   };
 
   return (
-    <div className="flex  items-center">
-      <div className="w-1/2 p-4  mt-20">
+    <div className="flex  items-center justify-center">
+      <div className="p-4  mt-20 w-[400px] h-[400px]">
         <Pie data={ruralUrbanData} options={options} />
       </div>
-      <div className="w-1/2 p-4  mt-20">
+      <div className="p-4 mt-20  w-[500px] h-[500px]">
         <Pie data={darknessLightData} options={options2} />
       </div>
     </div>

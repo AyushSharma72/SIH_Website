@@ -80,7 +80,7 @@ const getNearbyHospitals = async (latitude, longitude) => {
 const fetchLocationData = async () => {
   try {
     const response = await fetch(
-      "http://localhost:8000/api/v1/Location/GetLocation"
+      "https://sih-website.onrender.com/api/v1/Location/GetLocation"
     );
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);

@@ -31,53 +31,6 @@ ChartJS.register(
 );
 
 const Reports = () => {
-  // Dummy data for accidents on roads
-  const accidentData = {
-    labels: ["Ring Road", "AB Road", "MR10", "Rajkumar Bridge", "Dewas Naka"],
-    datasets: [
-      {
-        label: "Accidents",
-        data: [120, 90, 150, 80, 200],
-        backgroundColor: "rgba(255, 99, 132, 0.2)",
-        borderColor: "rgba(255, 99, 132, 1)",
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  // Dummy data for accident types
-  const accidentTypeData = {
-    labels: ["Car", "Bike", "Truck", "Pedestrian"],
-    datasets: [
-      {
-        data: [300, 100, 50, 20],
-        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
-        hoverBackgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
-      },
-    ],
-  };
-
-  // Dummy data for accidents over time (weekly)
-  const accidentTimeData = {
-    labels: [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ],
-    datasets: [
-      {
-        label: "Accidents per Day",
-        data: [15, 12, 25, 18, 20, 22, 30],
-        fill: false,
-        borderColor: "rgba(75,192,192,1)",
-      },
-    ],
-  };
-
   return (
     <div className="h-screen flex flex-col relative">
       {/* Header */}
@@ -89,24 +42,18 @@ const Reports = () => {
 
       <div className="flex flex-grow mt-16">
         {/* Navigation */}
-        <nav className="bg-orange-500 text-white w-1/6 p-6 flex flex-col space-y-4">
+        <nav className="bg-orange-500 text-white w-[20%] p-6 flex flex-col space-y-4">
           <img src={logo} alt="Logo" className="h-25 w-50 mb-4" />
 
-          <Link to="/">
+          <Link to="/" className="text-black font-bold">
             <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
               Dashboard
             </div>
           </Link>
 
-          <Link to="/reports">
+          <Link to="/reports" className="text-black font-bold">
             <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
               Reports
-            </div>
-          </Link>
-
-          <Link to="/tollnaka">
-            <div className="p-3 bg-orange-400 rounded hover:bg-orange-300 cursor-pointer transition duration-200">
-              Tollnaka
             </div>
           </Link>
         </nav>
